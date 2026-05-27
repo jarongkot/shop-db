@@ -182,7 +182,7 @@ tr:hover td{background:#f8fafc}
       Admin: <strong>admin@shop.com / admin123</strong> &nbsp;|&nbsp; Staff: <strong>staff@shop.com / 12345</strong>
     </div>
     <div id="loginGHInfo" style="margin-top:12px;padding:10px 14px;background:#f0fdfa;border-radius:10px;font-size:11px;color:#0f766e;display:none"></div>
-    <button onclick="showConfig()" style="width:100%;margin-top:10px;padding:10px;border-radius:10px;border:1.5px solid #14b8a6;background:#fff;color:#0f766e;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">⚙️ ตั้งค่า GitHub Database</button>
+    <button id="btnShowConfig" style="width:100%;margin-top:10px;padding:10px;border-radius:10px;border:1.5px solid #14b8a6;background:#fff;color:#0f766e;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">⚙️ ตั้งค่า GitHub Database</button>
   </div>
 </div>
 
@@ -843,6 +843,9 @@ $('loginPass').addEventListener('keypress',e=>{if(e.key==='Enter')doLogin();});
       ข้อมูลจะถูกเก็บเป็นไฟล์ JSON ใน Repository ของคุณ<br>
       Token ถูกเก็บใน localStorage บนเบราว์เซอร์ของคุณเท่านั้น
     </div>
+    <div style="text-align:center;margin-top:10px">
+      <button onclick="localStorage.removeItem('ghdb_config');location.reload();" style="background:none;border:none;color:#94a3b8;font-size:11px;cursor:pointer;text-decoration:underline;font-family:inherit">ล้างข้อมูลการตั้งค่าและเริ่มใหม่</button>
+    </div>
   </div>
 </div>
 
@@ -949,14 +952,23 @@ function saveConfig() {
   });
 }
 function showConfig() {
-  const c = JSON.parse(localStorage.getItem('ghdb_config') || '{}');
-  if (c.owner) document.getElementById('cfg_owner').value = c.owner;
-  if (c.repo)  document.getElementById('cfg_repo').value  = c.repo;
-  if (c.token) document.getElementById('cfg_token').value = c.token;
-  if (c.branch) document.getElementById('cfg_branch').value = c.branch || 'main';
-  document.getElementById('loginWrap').style.display = 'none';
-  document.getElementById('app').classList.remove('active');
-  document.getElementById('configWrap').style.display = 'flex';
+  try {
+    const c = JSON.parse(localStorage.getItem('ghdb_config') || '{}');
+    const o = document.getElementById('cfg_owner');
+    const r = document.getElementById('cfg_repo');
+    const t = document.getElementById('cfg_token');
+    const b = document.getElementById('cfg_branch');
+    if (o && c.owner) o.value = c.owner;
+    if (r && c.repo)  r.value = c.repo;
+    if (t && c.token) t.value = c.token;
+    if (b) b.value = c.branch || 'main';
+  } catch(e) {}
+  const lw = document.getElementById('loginWrap');
+  const ap = document.getElementById('app');
+  const cw = document.getElementById('configWrap');
+  if (lw) lw.style.display = 'none';
+  if (ap) ap.classList.remove('active');
+  if (cw) { cw.style.display = 'flex'; cw.style.visibility = 'visible'; cw.style.opacity = '1'; }
 }
 function clearConfig() {
   if (!confirm('ลบการตั้งค่า GitHub และออกจากระบบ?')) return;
@@ -1145,9 +1157,23 @@ function startApp() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Wire up config button reliably here
+  const configBtn = document.getElementById('btnShowConfig');
+  if (configBtn) {
+    configBtn.addEventListener('click', function() {
+      showConfig();
+    });
+  }
+
   // Always hide everything first
   document.getElementById('loginWrap').style.display = 'none';
   document.getElementById('configWrap').style.display = 'none';
+
+  // Check URL for ?reset param
+  if (window.location.search.includes('reset')) {
+    localStorage.removeItem('ghdb_config');
+    history.replaceState({}, '', window.location.pathname);
+  }
 
   if (loadConfig()) {
     startApp();
