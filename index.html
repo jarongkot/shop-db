@@ -608,7 +608,7 @@ function renderProducts(){
           <td><strong>${esc(p['ชื่อสินค้า'])}</strong><br><span style="font-size:10px;color:var(--gray-500)">${esc(p['ยี่ห้อ']||'')}</span></td>
           <td>${esc(p['หมวดหมู่'])}</td><td>${money(cost)}</td>
           <td><strong style="color:var(--primary)">${money(price)}</strong></td>
-          <td><span style="color:${margin>=30?'var(--success)':margin>=15?'var(--warning)':'var(--danger)'}" style="font-weight:600">${margin}%</span></td>
+          <td><span style="font-weight:600;color:${margin>=30?'#22c55e':margin>=15?'#eab308':'#ef4444'}">${margin}%</span></td>
           <td><strong style="color:${s<=0?'var(--danger)':s<=r?'var(--warning)':'var(--gray-900)'}">${fmt(s)}</strong> ${esc(p['หน่วย']||'ชิ้น')}<div class="sbar"><div class="sbar-inner" style="width:${pct}%;background:${s<=0?'var(--danger)':s<=r?'var(--warning)':'var(--success)'}"></div></div></td>
           <td>${statusBadge(p['สถานะ']||'ใช้งาน')}</td>
           <td style="white-space:nowrap">${isAdmin()?`<button class="btn btn-sm btn-secondary" onclick="editProd('${esc(p['รหัสสินค้า'])}')">✏️</button>`:''}<button class="btn btn-sm btn-info" onclick="qStockIn('${esc(p['รหัสสินค้า'])}','${esc(p['ชื่อสินค้า'])}')">+สต็อก</button></td>
@@ -844,7 +844,7 @@ $('loginPass').addEventListener('keypress',e=>{if(e.key==='Enter')doLogin();});
       Token ถูกเก็บใน localStorage บนเบราว์เซอร์ของคุณเท่านั้น
     </div>
     <div style="text-align:center;margin-top:10px">
-      <button onclick="localStorage.removeItem('ghdb_config');location.reload();" style="background:none;border:none;color:#94a3b8;font-size:11px;cursor:pointer;text-decoration:underline;font-family:inherit">ล้างข้อมูลการตั้งค่าและเริ่มใหม่</button>
+      <button onclick="safeStorage('del','ghdb_config');location.reload();" style="background:none;border:none;color:#94a3b8;font-size:11px;cursor:pointer;text-decoration:underline;font-family:inherit">ล้างข้อมูลการตั้งค่าและเริ่มใหม่</button>
     </div>
   </div>
 </div>
@@ -920,9 +920,29 @@ const GH = {
 };
 
 // ====== CONFIG ======
+let _memStore = {};
+function safeStorage(action, key, val) {
+  try {
+    if (action==='get') {
+      try { return localStorage.getItem(key); } catch(e) {}
+      try { return sessionStorage.getItem(key); } catch(e) {}
+      return _memStore[key] || null;
+    }
+    if (action==='set') {
+      try { localStorage.setItem(key, val); return true; } catch(e) {}
+      try { sessionStorage.setItem(key, val); return true; } catch(e) {}
+      _memStore[key] = val; return true;
+    }
+    if (action==='del') {
+      try { localStorage.removeItem(key); } catch(e) {}
+      try { sessionStorage.removeItem(key); } catch(e) {}
+      delete _memStore[key]; return true;
+    }
+  } catch(e) { return null; }
+}
 function loadConfig() {
   try {
-    const c = JSON.parse(localStorage.getItem('ghdb_config') || '{}');
+    const c = JSON.parse(safeStorage('get','ghdb_config') || '{}');
     if (c.owner && c.repo && c.token) {
       GH.owner = c.owner; GH.repo = c.repo; GH.token = c.token; GH.branch = c.branch || 'main';
       return true;
@@ -942,7 +962,7 @@ function saveConfig() {
   GH.owner = owner; GH.repo = repo; GH.token = token; GH.branch = branch;
   GH.init().then(async () => {
     await GH.ensureFiles();
-    localStorage.setItem('ghdb_config', JSON.stringify({ owner, repo, token, branch }));
+    safeStorage('set','ghdb_config', JSON.stringify({ owner, repo, token, branch }));
     document.getElementById('configWrap').style.display = 'none';
     document.getElementById('loginWrap').style.display = 'none';
     startApp();
@@ -953,7 +973,7 @@ function saveConfig() {
 }
 function showConfig() {
   try {
-    const c = JSON.parse(localStorage.getItem('ghdb_config') || '{}');
+    const c = JSON.parse(safeStorage('get','ghdb_config') || '{}');
     const o = document.getElementById('cfg_owner');
     const r = document.getElementById('cfg_repo');
     const t = document.getElementById('cfg_token');
@@ -972,7 +992,7 @@ function showConfig() {
 }
 function clearConfig() {
   if (!confirm('ลบการตั้งค่า GitHub และออกจากระบบ?')) return;
-  localStorage.removeItem('ghdb_config');
+  safeStorage('del','ghdb_config');
   location.reload();
 }
 
@@ -1149,7 +1169,7 @@ function startApp() {
     topbar.insertBefore(ghBtn, topbar.querySelector('.user-chip'));
   }
   // Show repo info in login card
-  const c = JSON.parse(localStorage.getItem('ghdb_config') || '{}');
+  const c = JSON.parse(safeStorage('get','ghdb_config') || '{}');
   const hint = document.createElement('div');
   hint.style.cssText = 'text-align:center;margin-top:12px;padding:10px;background:#f0fdfa;border-radius:10px;font-size:11px;color:#0f766e';
   hint.innerHTML = `🔗 GitHub: <strong>${c.owner}/${c.repo}</strong> (${c.branch||'main'})`;
@@ -1171,7 +1191,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Check URL for ?reset param
   if (window.location.search.includes('reset')) {
-    localStorage.removeItem('ghdb_config');
+    safeStorage('del','ghdb_config');
     history.replaceState({}, '', window.location.pathname);
   }
 
