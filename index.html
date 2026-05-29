@@ -181,8 +181,6 @@ tr:hover td{background:#f8fafc}
     <div style="text-align:center;margin-top:16px;color:var(--gray-500);font-size:11px">
       Admin: <strong>admin@shop.com / admin123</strong> &nbsp;|&nbsp; Staff: <strong>staff@shop.com / 12345</strong>
     </div>
-    <div id="loginGHInfo" style="margin-top:12px;padding:10px 14px;background:#f0fdfa;border-radius:10px;font-size:11px;color:#0f766e;display:none"></div>
-    <button id="btnShowConfig" style="width:100%;margin-top:10px;padding:10px;border-radius:10px;border:1.5px solid #14b8a6;background:#fff;color:#0f766e;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">⚙️ ตั้งค่า GitHub Database</button>
   </div>
 </div>
 
@@ -810,11 +808,6 @@ $('loginPass').addEventListener('keypress',e=>{if(e.key==='Enter')doLogin();});
 
 <script>
 
-<!-- ====== CONFIG SCREEN ====== -->
-<div id="configWrap" style="display:none;min-height:100vh;background:linear-gradient(135deg,#0f766e,#14b8a6,#0ea5e9);align-items:center;justify-content:center;padding:20px">
-  <div style="background:#fff;border-radius:24px;padding:40px;max-width:500px;width:100%;box-shadow:0 25px 80px rgba(0,0,0,.25)">
-    <div style="text-align:center;margin-bottom:28px">
-      <div style="font-size:52px;margin-bottom:8px">🔧</div>
       <h2 style="font-size:20px;font-weight:700;color:#0f766e">ตั้งค่า GitHub Database</h2>
       <p style="color:#64748b;font-size:13px;margin-top:6px">ใช้ GitHub Repository เป็นฐานข้อมูล</p>
     </div>
@@ -850,14 +843,15 @@ $('loginPass').addEventListener('keypress',e=>{if(e.key==='Enter')doLogin();});
 </div>
 
 <script>
-// ====== GITHUB DATABASE ENGINE ======
+// ====== GITHUB DATABASE (HARDCODED) ======
 const GH = {
-  owner: '', repo: '', token: '', branch: 'main',
-  _sha: {},   // cache SHA for each file
-  _cache: {}, // cache file content
+  owner: 'jarongkot',
+  repo:  'shop-db',
+  branch:'main',
+  token: '',
+  _sha:  {},
 
   baseURL() { return `https://api.github.com/repos/${this.owner}/${this.repo}/contents/data`; },
-
   headers() {
     return {
       'Authorization': `Bearer ${this.token}`,
@@ -868,343 +862,138 @@ const GH = {
   },
 
   async readFile(name) {
-    const url = `${this.baseURL()}/${name}.json?ref=${this.branch}&t=${Date.now()}`;
-    const res = await fetch(url, { headers: this.headers() });
+    const res = await fetch(`${this.baseURL()}/${name}.json?ref=${this.branch}&t=${Date.now()}`, { headers: this.headers() });
     if (res.status === 404) return [];
-    if (!res.ok) throw new Error(`GitHub read error ${res.status}: ${await res.text()}`);
+    if (!res.ok) throw new Error(`GitHub read error ${res.status}`);
     const data = await res.json();
     this._sha[name] = data.sha;
-    const content = atob(data.content.replace(/\n/g, ''));
-    return JSON.parse(content);
+    return JSON.parse(atob(data.content.replace(/
+/g,'')));
   },
 
   async writeFile(name, arr) {
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(arr, null, 2))));
-    const body = { message: `update ${name} [${new Date().toISOString()}]`, content, branch: this.branch };
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(arr,null,2))));
+    const body = { message:`update ${name}`, content, branch: this.branch };
     if (this._sha[name]) body.sha = this._sha[name];
     const res = await fetch(`${this.baseURL()}/${name}.json`, {
-      method: 'PUT', headers: this.headers(), body: JSON.stringify(body)
+      method:'PUT', headers: this.headers(), body: JSON.stringify(body)
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || `GitHub write error ${res.status}`);
-    }
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message||`write error ${res.status}`); }
     const data = await res.json();
     this._sha[name] = data.content.sha;
-    return data;
-  },
-
-  async init() {
-    // Check repo exists + token valid
-    const res = await fetch(`https://api.github.com/repos/${this.owner}/${this.repo}`, { headers: this.headers() });
-    if (res.status === 401) throw new Error('Token ไม่ถูกต้องหรือหมดอายุ');
-    if (res.status === 404) throw new Error(`ไม่พบ Repository: ${this.owner}/${this.repo}`);
-    if (!res.ok) throw new Error(`GitHub error: ${res.status}`);
   },
 
   async ensureFiles() {
-    // Create data files if not exist
     const defaults = {
-      users: [{ _row:1, ชื่อ:'ผู้ดูแลระบบ', อีเมล:'admin@shop.com', รหัสผ่าน:'admin123', บทบาท:'admin', สถานะ:'ใช้งาน' }],
-      products: [], orders: [], customers: [], categories: [
-        {_row:1,ชื่อหมวด:'สินค้าทั่วไป',ไอคอน:'📦'},{_row:2,ชื่อหมวด:'อาหารและเครื่องดื่ม',ไอคอน:'🍱'},
-        {_row:3,ชื่อหมวด:'เสื้อผ้าแฟชั่น',ไอคอน:'👗'},{_row:4,ชื่อหมวด:'อิเล็กทรอนิกส์',ไอคอน:'📱'}
-      ],
-      suppliers: [], stockLogs: []
+      users:[{_row:1,ชื่อ:'ผู้ดูแลระบบ',อีเมล:'admin@shop.com',รหัสผ่าน:'admin123',บทบาท:'admin',สถานะ:'ใช้งาน'}],
+      products:[], orders:[], customers:[],
+      categories:[{_row:1,ชื่อหมวด:'สินค้าทั่วไป',ไอคอน:'📦'},{_row:2,ชื่อหมวด:'อาหาร',ไอคอน:'🍱'},{_row:3,ชื่อหมวด:'เสื้อผ้า',ไอคอน:'👗'},{_row:4,ชื่อหมวด:'อิเล็กทรอนิกส์',ไอคอน:'📱'}],
+      suppliers:[], stockLogs:[]
     };
-    for (const [name, def] of Object.entries(defaults)) {
-      try { await this.readFile(name); }
-      catch(e) { await this.writeFile(name, def); }
+    for (const [name,def] of Object.entries(defaults)) {
+      try { await this.readFile(name); } catch(e) { await this.writeFile(name,def); }
     }
   }
 };
 
-// ====== CONFIG ======
-let _memStore = {};
-function safeStorage(action, key, val) {
-  try {
-    if (action==='get') {
-      try { return localStorage.getItem(key); } catch(e) {}
-      try { return sessionStorage.getItem(key); } catch(e) {}
-      return _memStore[key] || null;
-    }
-    if (action==='set') {
-      try { localStorage.setItem(key, val); return true; } catch(e) {}
-      try { sessionStorage.setItem(key, val); return true; } catch(e) {}
-      _memStore[key] = val; return true;
-    }
-    if (action==='del') {
-      try { localStorage.removeItem(key); } catch(e) {}
-      try { sessionStorage.removeItem(key); } catch(e) {}
-      delete _memStore[key]; return true;
-    }
-  } catch(e) { return null; }
-}
-function loadConfig() {
-  try {
-    const c = JSON.parse(safeStorage('get','ghdb_config') || '{}');
-    if (c.owner && c.repo && c.token) {
-      GH.owner = c.owner; GH.repo = c.repo; GH.token = c.token; GH.branch = c.branch || 'main';
-      return true;
-    }
-  } catch(e) {}
-  return false;
-}
-function saveConfig() {
-  const owner = document.getElementById('cfg_owner').value.trim();
-  const repo  = document.getElementById('cfg_repo').value.trim();
-  const token = document.getElementById('cfg_token').value.trim();
-  const branch = document.getElementById('cfg_branch').value.trim() || 'main';
-  const errEl = document.getElementById('cfgError');
-  if (!owner || !repo || !token) { errEl.style.display='block'; errEl.textContent='กรอกข้อมูลให้ครบทุกช่อง'; return; }
-  errEl.style.display = 'none';
-  const btn = event.target; btn.disabled = true; btn.innerHTML = '<span class="spin"></span> กำลังเชื่อมต่อ...';
-  GH.owner = owner; GH.repo = repo; GH.token = token; GH.branch = branch;
-  GH.init().then(async () => {
-    await GH.ensureFiles();
-    safeStorage('set','ghdb_config', JSON.stringify({ owner, repo, token, branch }));
-    document.getElementById('configWrap').style.display = 'none';
-    document.getElementById('loginWrap').style.display = 'none';
-    startApp();
-  }).catch(err => {
-    errEl.style.display = 'block'; errEl.textContent = '❌ ' + err.message;
-    btn.disabled = false; btn.innerHTML = '🚀 เชื่อมต่อและเริ่มใช้งาน';
-  });
-}
-function showConfig() {
-  try {
-    const c = JSON.parse(safeStorage('get','ghdb_config') || '{}');
-    const o = document.getElementById('cfg_owner');
-    const r = document.getElementById('cfg_repo');
-    const t = document.getElementById('cfg_token');
-    const b = document.getElementById('cfg_branch');
-    if (o && c.owner) o.value = c.owner;
-    if (r && c.repo)  r.value = c.repo;
-    if (t && c.token) t.value = c.token;
-    if (b) b.value = c.branch || 'main';
-  } catch(e) {}
-  const lw = document.getElementById('loginWrap');
-  const ap = document.getElementById('app');
-  const cw = document.getElementById('configWrap');
-  if (lw) lw.style.display = 'none';
-  if (ap) ap.classList.remove('active');
-  if (cw) { cw.style.display = 'flex'; cw.style.visibility = 'visible'; cw.style.opacity = '1'; }
-}
-function clearConfig() {
-  if (!confirm('ลบการตั้งค่า GitHub และออกจากระบบ?')) return;
-  safeStorage('del','ghdb_config');
-  location.reload();
-}
-
-// ====== GOOGLE SCRIPT SHIM → GITHUB API ======
-function genId(prefix, arr) {
-  const nums = arr.map(x => parseInt((x['รหัส'] || x['รหัสสินค้า'] || x['เลขออเดอร์'] || '0').replace(/\D/g,''))).filter(Boolean);
-  const next = nums.length ? Math.max(...nums) + 1 : 1;
-  return prefix + String(next).padStart(3, '0');
-}
-function genOrderId(arr) {
-  const nums = arr.map(x => parseInt((x['เลขออเดอร์']||'').replace('ORD-',''))).filter(Boolean);
-  const next = nums.length ? Math.max(...nums) + 1 : 1001;
-  return 'ORD-' + String(next).padStart(4,'0');
-}
-
-const google = {
-  script: {
-    run: (function() {
-      let _sh = null, _fh = null;
-      const px = new Proxy({}, {
-        get(t, m) {
-          if (m === 'withSuccessHandler') return fn => { _sh = fn; return px; };
-          if (m === 'withFailureHandler') return fn => { _fh = fn; return px; };
-          return (...args) => {
-            const sh = _sh, fh = _fh; _sh = null; _fh = null;
-            (async () => {
-              try {
-                let result;
-
-                if (m === 'login') {
-                  const users = await GH.readFile('users');
-                  const u = users.find(x => (x['อีเมล'] === args[0] || x['ชื่อ'] === args[0]) && x['รหัสผ่าน'] === args[1]);
-                  result = u ? { success: true, user: { name: u['ชื่อ'], role: u['บทบาท'], email: u['อีเมล'] } }
-                              : { success: false, message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' };
-                }
-
-                else if (m === 'getAllData') {
-                  showLoad(true);
-                  const [orders, products, customers, categories, suppliers, stockLogs, users] = await Promise.all([
-                    GH.readFile('orders'), GH.readFile('products'), GH.readFile('customers'),
-                    GH.readFile('categories'), GH.readFile('suppliers'), GH.readFile('stockLogs'), GH.readFile('users')
-                  ]);
-                  showLoad(false);
-                  result = { orders, products, customers, categories, suppliers, stockLogs, users };
-                }
-
-                else if (m === 'saveOrder') {
-                  const d = args[0];
-                  const orders = await GH.readFile('orders');
-                  d['เลขออเดอร์'] = genOrderId(orders);
-                  d['วันที่'] = d['วันที่'] || new Date().toISOString().split('T')[0];
-                  d['_row'] = orders.length + 1;
-                  orders.push(d);
-                  // deduct stock
-                  const products = await GH.readFile('products');
-                  const logs = await GH.readFile('stockLogs');
-                  let changed = false;
-                  for (const item of (d._items || [])) {
-                    const p = products.find(x => x['รหัสสินค้า'] === item.id);
-                    if (p) { p['สต็อก'] = Math.max(0, (+p['สต็อก'] || 0) - (+item.qty || 0)); changed = true;
-                      logs.push({ _row: logs.length+1, วันที่: d['วันที่'], รหัสสินค้า: item.id, ชื่อสินค้า: item.name, ประเภท:'จ่ายออก', จำนวน:item.qty, คงเหลือ:p['สต็อก'], อ้างอิง:d['เลขออเดอร์'], ผู้บันทึก:args[1] });
-                    }
-                  }
-                  await GH.writeFile('orders', orders);
-                  if (changed) { await GH.writeFile('products', products); await GH.writeFile('stockLogs', logs); }
-                  result = { success: true, orderId: d['เลขออเดอร์'] };
-                }
-
-                else if (m === 'updateOrderStatus') {
-                  const orders = await GH.readFile('orders');
-                  const o = orders.find(x => x['เลขออเดอร์'] === args[0]);
-                  if (o) { o['สถานะ'] = args[1]; await GH.writeFile('orders', orders); result = { success: true }; }
-                  else result = { success: false, message: 'ไม่พบออเดอร์' };
-                }
-
-                else if (m === 'saveCustomer') {
-                  const d = args[0];
-                  const arr = await GH.readFile('customers');
-                  const idx = arr.findIndex(x => x['รหัส'] === d['รหัส']);
-                  if (!d['รหัส']) d['รหัส'] = genId('CST-', arr);
-                  if (idx >= 0) arr[idx] = { ...arr[idx], ...d };
-                  else { d['_row'] = arr.length + 1; arr.push(d); }
-                  await GH.writeFile('customers', arr);
-                  result = { success: true };
-                }
-
-                else if (m === 'saveProduct') {
-                  const d = args[0];
-                  const arr = await GH.readFile('products');
-                  const idx = arr.findIndex(x => x['รหัสสินค้า'] === d['รหัสสินค้า']);
-                  if (idx >= 0) arr[idx] = { ...arr[idx], ...d };
-                  else { d['_row'] = arr.length + 1; arr.push(d); }
-                  await GH.writeFile('products', arr);
-                  result = { success: true };
-                }
-
-                else if (m === 'stockIn') {
-                  const d = args[0];
-                  const products = await GH.readFile('products');
-                  const logs = await GH.readFile('stockLogs');
-                  const p = products.find(x => x['รหัสสินค้า'] === d.productCode);
-                  if (!p) { result = { success: false, message: 'ไม่พบสินค้า' }; }
-                  else {
-                    p['สต็อก'] = (+p['สต็อก'] || 0) + (+d.qty || 0);
-                    if (d.cost) p['ราคาทุน'] = d.cost;
-                    logs.push({ _row: logs.length+1, วันที่: d.date || new Date().toISOString().split('T')[0], รหัสสินค้า: d.productCode, ชื่อสินค้า: d.productName, ประเภท:'รับเข้า', จำนวน:d.qty, ราคาทุน:d.cost||0, คงเหลือ:p['สต็อก'], ซัพพลายเออร์:d.supplier||'', อ้างอิง:d.ref||'', ผู้บันทึก:args[1] });
-                    await GH.writeFile('products', products);
-                    await GH.writeFile('stockLogs', logs);
-                    result = { success: true };
-                  }
-                }
-
-                else if (m === 'saveCategory') {
-                  const d = args[0];
-                  const arr = await GH.readFile('categories');
-                  d['_row'] = arr.length + 1; arr.push(d);
-                  await GH.writeFile('categories', arr);
-                  result = { success: true };
-                }
-
-                else if (m === 'saveSupplier') {
-                  const d = args[0];
-                  const arr = await GH.readFile('suppliers');
-                  if (!d['รหัส']) d['รหัส'] = genId('SUP-', arr);
-                  d['_row'] = arr.length + 1; arr.push(d);
-                  await GH.writeFile('suppliers', arr);
-                  result = { success: true };
-                }
-
-                else if (m === 'saveUser') {
-                  const d = args[0];
-                  const arr = await GH.readFile('users');
-                  const idx = arr.findIndex(x => x['อีเมล'] === d['อีเมล']);
-                  if (idx >= 0) arr[idx] = { ...arr[idx], ...d };
-                  else { d['_row'] = arr.length + 1; arr.push(d); }
-                  await GH.writeFile('users', arr);
-                  result = { success: true };
-                }
-
-                else if (m === 'setupSystem') {
-                  await GH.ensureFiles();
-                  result = 'Setup สำเร็จ';
-                }
-
-                else { result = { success: true }; }
-
-                if (sh) sh(result);
-              } catch (e) {
-                showLoad(false);
-                if (fh) fh(e);
-                else toast('GitHub Error: ' + e.message, 'error');
-              }
-            })();
-          };
-        }
-      });
-      return px;
-    })()
-  }
-};
-
-// ====== BOOT ======
-function startApp() {
-  document.getElementById('loginWrap').style.display = 'flex';
-  // Add settings button
-  const topbar = document.querySelector('.topbar');
-  if (topbar) {
-    const ghBtn = document.createElement('button');
-    ghBtn.className = 'btn btn-sm btn-secondary';
-    ghBtn.title = 'GitHub Settings';
-    ghBtn.innerHTML = '⚙️ GitHub';
-    ghBtn.style.cssText = 'font-size:11px';
-    ghBtn.onclick = showConfig;
-    topbar.insertBefore(ghBtn, topbar.querySelector('.user-chip'));
-  }
-  // Show repo info in login card
-  const c = JSON.parse(safeStorage('get','ghdb_config') || '{}');
-  const hint = document.createElement('div');
-  hint.style.cssText = 'text-align:center;margin-top:12px;padding:10px;background:#f0fdfa;border-radius:10px;font-size:11px;color:#0f766e';
-  hint.innerHTML = `🔗 GitHub: <strong>${c.owner}/${c.repo}</strong> (${c.branch||'main'})`;
-  document.querySelector('.login-card').appendChild(hint);
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  // Wire up config button reliably here
-  const configBtn = document.getElementById('btnShowConfig');
-  if (configBtn) {
-    configBtn.addEventListener('click', function() {
-      showConfig();
-    });
-  }
-
-  // Always hide everything first
+// ====== TOKEN SCREEN ======
+function showTokenScreen(errMsg) {
   document.getElementById('loginWrap').style.display = 'none';
-  document.getElementById('configWrap').style.display = 'none';
-
-  // Check URL for ?reset param
-  if (window.location.search.includes('reset')) {
-    safeStorage('del','ghdb_config');
-    history.replaceState({}, '', window.location.pathname);
+  document.getElementById('app').classList.remove('active');
+  let wrap = document.getElementById('tokenWrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'tokenWrap';
+    wrap.style.cssText = 'min-height:100vh;background:linear-gradient(135deg,#0f766e,#14b8a6,#0ea5e9);display:flex;align-items:center;justify-content:center;padding:20px';
+    wrap.innerHTML = `
+      <div style="background:#fff;border-radius:24px;padding:40px;max-width:440px;width:100%;box-shadow:0 25px 80px rgba(0,0,0,.25)">
+        <div style="text-align:center;margin-bottom:28px">
+          <div style="font-size:52px;margin-bottom:8px">🔑</div>
+          <h2 style="font-size:20px;font-weight:700;color:#0f766e">ยืนยัน GitHub Token</h2>
+          <p style="color:#64748b;font-size:13px;margin-top:6px">jarongkot / shop-db</p>
+        </div>
+        <div style="margin-bottom:16px">
+          <label style="display:block;font-size:13px;font-weight:600;color:#334155;margin-bottom:6px">Personal Access Token (PAT)</label>
+          <input id="tokenInput" type="password" placeholder="ghp_xxxxxxxxxxxx"
+            style="width:100%;padding:13px 16px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-family:inherit;outline:none"
+            onfocus="this.style.borderColor='#0f766e'" onblur="this.style.borderColor='#e2e8f0'">
+          <div style="font-size:11px;color:#94a3b8;margin-top:6px">Token ต้องมี scope: <strong>repo</strong> — <a href="https://github.com/settings/tokens/new?scopes=repo" target="_blank" style="color:#0f766e">สร้าง Token</a></div>
+        </div>
+        <div id="tokenErr" style="display:none;background:#fee2e2;color:#991b1b;padding:10px 14px;border-radius:10px;font-size:12px;margin-bottom:12px"></div>
+        <button id="tokenBtn" onclick="submitToken()"
+          style="width:100%;padding:14px;border-radius:12px;background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;font-weight:700;font-size:15px;border:none;cursor:pointer;font-family:inherit">
+          🚀 เข้าใช้งาน
+        </button>
+        <div style="text-align:center;margin-top:14px;font-size:11px;color:#94a3b8">Token ไม่ถูกบันทึกไว้ในระบบ — ต้องกรอกใหม่ทุกครั้งที่เปิดหน้าเว็บ</div>
+      </div>`;
+    document.body.insertBefore(wrap, document.body.firstChild);
+    document.getElementById('tokenInput').addEventListener('keypress', e => { if(e.key==='Enter') submitToken(); });
   }
+  wrap.style.display = 'flex';
+  if (errMsg) { const e = document.getElementById('tokenErr'); e.style.display='block'; e.textContent='❌ '+errMsg; }
+}
 
-  if (loadConfig()) {
+async function submitToken() {
+  const t = document.getElementById('tokenInput').value.trim();
+  if (!t) { const e=document.getElementById('tokenErr'); e.style.display='block'; e.textContent='❌ กรอก Token ก่อนครับ'; return; }
+  const btn = document.getElementById('tokenBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> กำลังตรวจสอบ...';
+  GH.token = t;
+  try {
+    const res = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}`, { headers: GH.headers() });
+    if (res.status === 401) throw new Error('Token ไม่ถูกต้องหรือหมดอายุ');
+    if (res.status === 404) throw new Error('ไม่พบ Repository');
+    if (!res.ok) throw new Error('GitHub error: '+res.status);
+    showLoad(true);
+    await GH.ensureFiles();
+    showLoad(false);
+    document.getElementById('tokenWrap').style.display = 'none';
     startApp();
-    const info = document.getElementById('loginGHInfo');
-    if (info) {
-      info.style.display = 'block';
-      info.innerHTML = '🔗 GitHub: <strong>' + GH.owner + '/' + GH.repo + '</strong> (' + GH.branch + ')';
-    }
-  } else {
-    showConfig();
+  } catch(err) {
+    GH.token = '';
+    btn.disabled = false; btn.innerHTML = '🚀 เข้าใช้งาน';
+    showTokenScreen(err.message);
   }
+}
+
+// ====== GOOGLE SCRIPT SHIM ======
+function genId(prefix,arr){const n=arr.map(x=>parseInt((x['รหัส']||x['รหัสสินค้า']||x['เลขออเดอร์']||'0').replace(/\D/g,''))).filter(Boolean);const nx=n.length?Math.max(...n)+1:1;return prefix+String(nx).padStart(3,'0');}
+function genOrderId(arr){const n=arr.map(x=>parseInt((x['เลขออเดอร์']||'').replace('ORD-',''))).filter(Boolean);const nx=n.length?Math.max(...n)+1:1001;return 'ORD-'+String(nx).padStart(4,'0');}
+
+const google={script:{run:(function(){
+  let _sh=null,_fh=null;
+  const px=new Proxy({},{get(t,m){
+    if(m==='withSuccessHandler')return fn=>{_sh=fn;return px;};
+    if(m==='withFailureHandler')return fn=>{_fh=fn;return px;};
+    return(...a)=>{
+      const sh=_sh,fh=_fh;_sh=null;_fh=null;
+      (async()=>{
+        try{
+          let r;
+          if(m==='login'){const users=await GH.readFile('users');const u=users.find(x=>(x['อีเมล']===a[0]||x['ชื่อ']===a[0])&&x['รหัสผ่าน']===a[1]);r=u?{success:true,user:{name:u['ชื่อ'],role:u['บทบาท'],email:u['อีเมล']}}:{success:false,message:'อีเมลหรือรหัสผ่านไม่ถูกต้อง'};}
+          else if(m==='getAllData'){showLoad(true);const[orders,products,customers,categories,suppliers,stockLogs,users]=await Promise.all([GH.readFile('orders'),GH.readFile('products'),GH.readFile('customers'),GH.readFile('categories'),GH.readFile('suppliers'),GH.readFile('stockLogs'),GH.readFile('users')]);showLoad(false);r={orders,products,customers,categories,suppliers,stockLogs,users};}
+          else if(m==='saveOrder'){const d=a[0];const orders=await GH.readFile('orders');d['เลขออเดอร์']=genOrderId(orders);d['วันที่']=d['วันที่']||new Date().toISOString().split('T')[0];d['_row']=orders.length+1;orders.push(d);const products=await GH.readFile('products');const logs=await GH.readFile('stockLogs');let ch=false;for(const item of(d._items||[])){const p=products.find(x=>x['รหัสสินค้า']===item.id);if(p){p['สต็อก']=Math.max(0,(+p['สต็อก']||0)-(+item.qty||0));ch=true;logs.push({_row:logs.length+1,วันที่:d['วันที่'],รหัสสินค้า:item.id,ชื่อสินค้า:item.name,ประเภท:'จ่ายออก',จำนวน:item.qty,คงเหลือ:p['สต็อก'],อ้างอิง:d['เลขออเดอร์'],ผู้บันทึก:a[1]});}}await GH.writeFile('orders',orders);if(ch){await GH.writeFile('products',products);await GH.writeFile('stockLogs',logs);}r={success:true,orderId:d['เลขออเดอร์']};}
+          else if(m==='updateOrderStatus'){const orders=await GH.readFile('orders');const o=orders.find(x=>x['เลขออเดอร์']===a[0]);if(o){o['สถานะ']=a[1];await GH.writeFile('orders',orders);r={success:true};}else r={success:false,message:'ไม่พบออเดอร์'};}
+          else if(m==='saveCustomer'){const d=a[0];const arr=await GH.readFile('customers');const idx=arr.findIndex(x=>x['รหัส']===d['รหัส']);if(!d['รหัส'])d['รหัส']=genId('CST-',arr);if(idx>=0)arr[idx]={...arr[idx],...d};else{d['_row']=arr.length+1;arr.push(d);}await GH.writeFile('customers',arr);r={success:true};}
+          else if(m==='saveProduct'){const d=a[0];const arr=await GH.readFile('products');const idx=arr.findIndex(x=>x['รหัสสินค้า']===d['รหัสสินค้า']);if(idx>=0)arr[idx]={...arr[idx],...d};else{d['_row']=arr.length+1;arr.push(d);}await GH.writeFile('products',arr);r={success:true};}
+          else if(m==='stockIn'){const d=a[0];const products=await GH.readFile('products');const logs=await GH.readFile('stockLogs');const p=products.find(x=>x['รหัสสินค้า']===d.productCode);if(!p){r={success:false,message:'ไม่พบสินค้า'};}else{p['สต็อก']=(+p['สต็อก']||0)+(+d.qty||0);if(d.cost)p['ราคาทุน']=d.cost;logs.push({_row:logs.length+1,วันที่:d.date||new Date().toISOString().split('T')[0],รหัสสินค้า:d.productCode,ชื่อสินค้า:d.productName,ประเภท:'รับเข้า',จำนวน:d.qty,ราคาทุน:d.cost||0,คงเหลือ:p['สต็อก'],ซัพพลายเออร์:d.supplier||'',อ้างอิง:d.ref||'',ผู้บันทึก:a[1]});await GH.writeFile('products',products);await GH.writeFile('stockLogs',logs);r={success:true};}}
+          else if(m==='saveCategory'){const d=a[0];const arr=await GH.readFile('categories');d['_row']=arr.length+1;arr.push(d);await GH.writeFile('categories',arr);r={success:true};}
+          else if(m==='saveSupplier'){const d=a[0];const arr=await GH.readFile('suppliers');if(!d['รหัส'])d['รหัส']=genId('SUP-',arr);d['_row']=arr.length+1;arr.push(d);await GH.writeFile('suppliers',arr);r={success:true};}
+          else if(m==='saveUser'){const d=a[0];const arr=await GH.readFile('users');const idx=arr.findIndex(x=>x['อีเมล']===d['อีเมล']);if(idx>=0)arr[idx]={...arr[idx],...d};else{d['_row']=arr.length+1;arr.push(d);}await GH.writeFile('users',arr);r={success:true};}
+          else if(m==='setupSystem'){await GH.ensureFiles();r='Setup สำเร็จ';}
+          else{r={success:true};}
+          if(sh)sh(r);
+        }catch(e){showLoad(false);if(fh)fh(e);else toast('GitHub Error: '+e.message,'error');}
+      })();
+    };
+  }});return px;
+})()}};
+
+function startApp(){document.getElementById('loginWrap').style.display='flex';}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('loginWrap').style.display='none';
+  showTokenScreen();
 });
 </script>
 </body>
